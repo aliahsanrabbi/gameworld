@@ -2174,6 +2174,7 @@ const TAP_BLASTER_HTML = `<!DOCTYPE html>
     <span>Time: <strong id="time">0</strong>s</span>
     <span>Mode: <strong id="modeLabel">Normal</strong></span>
     <div style="display:flex;gap:8px">
+      <button class="btn" id="soundBtn">🔊</button>
       <button class="btn" id="pauseBtn">Pause</button>
       <button class="btn" id="restartBtn">Restart</button>
     </div>
@@ -2193,11 +2194,20 @@ const TAP_BLASTER_HTML = `<!DOCTYPE html>
 </div></div>
 <script>
 const backBtn=document.getElementById('backBtn'); backBtn.onclick=()=>{try{window.close()}catch(e){}; setTimeout(()=>{if(!window.closed)history.back()},150)};
+
+// --- Sound ---
+let AC=null, sfxOn = localStorage.getItem('tb_sound') !== '0';
+function sfxInit(){ if(!AC){ try{ AC = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } if(AC && AC.state==='suspended') AC.resume(); }
+function beep(f,d=0.1,t='sine',v=0.18){ if(!sfxOn||!AC) return; const o=AC.createOscillator(), g=AC.createGain(); o.type=t; o.frequency.value=f; g.gain.value=v; g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime+d); o.connect(g).connect(AC.destination); o.start(); o.stop(AC.currentTime+d+0.02); }
+const SFX={hit(){beep(780,0.08,'square',0.16); setTimeout(()=>beep(1040,0.06,'sine',0.14),40)}, miss(){beep(220,0.15,'sawtooth',0.14)}, over(){beep(300,0.14,'triangle',0.18); setTimeout(()=>beep(180,0.2,'triangle',0.16),120)}, click(){beep(620,0.05,'sine',0.13)}};
+function updateSoundBtn(){ document.getElementById('soundBtn').textContent = sfxOn ? '🔊' : '🔇'; }
+
 let mode='normal';
 const MODES={easy:{spawn:950,life:1200,lives:5,time:35,name:'Easy'},normal:{spawn:700,life:900,lives:3,time:30,name:'Normal'},hard:{spawn:500,life:650,lives:2,time:25,name:'Hard'}};
 const modeSelect=document.getElementById('modeSelect');
-modeSelect.addEventListener('click',e=>{const b=e.target.closest('.mode-btn'); if(!b) return; modeSelect.querySelectorAll('.mode-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); mode=b.dataset.mode;});
+modeSelect.addEventListener('click',e=>{const b=e.target.closest('.mode-btn'); if(!b) return; modeSelect.querySelectorAll('.mode-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); mode=b.dataset.mode; SFX.click();});
 const scoreEl=document.getElementById('score'), livesEl=document.getElementById('lives'), timeEl=document.getElementById('time'), modeLabel=document.getElementById('modeLabel');
+const soundBtn=document.getElementById('soundBtn'); soundBtn.onclick=()=>{ sfxOn=!sfxOn; localStorage.setItem('tb_sound', sfxOn?'1':'0'); updateSoundBtn(); sfxInit(); SFX.click(); }; updateSoundBtn();
 const arena=document.getElementById('arena'), overlay=document.getElementById('overlay');
 const startBtn=document.getElementById('startBtn'), pauseBtn=document.getElementById('pauseBtn'), restartBtn=document.getElementById('restartBtn');
 let score=0,lives=0,timeLeft=0,spawnTimer=null,gameTimer=null,running=false,paused=false;
@@ -2210,8 +2220,8 @@ function spawnTarget(){
  const y = rnd(8, Math.max(8, arena.clientHeight-size-8));
  t.style.left=x+'px'; t.style.top=y+'px';
  let hit=false;
- const remove=(miss=false)=>{ if(t.parentNode) t.remove(); if(miss && !hit){lives--; livesEl.textContent=lives; if(lives<=0) endGame();}};
- t.addEventListener('pointerdown', e=>{e.preventDefault(); hit=true; score++; scoreEl.textContent=score; t.remove()}, {passive:false});
+ const remove=(miss=false)=>{ if(t.parentNode) t.remove(); if(miss && !hit){lives--; livesEl.textContent=lives; SFX.miss(); if(lives<=0) endGame();}};
+ t.addEventListener('pointerdown', e=>{e.preventDefault(); hit=true; score++; scoreEl.textContent=score; SFX.hit(); t.remove()}, {passive:false});
  arena.appendChild(t);
  setTimeout(()=>remove(true), MODES[mode].life);
 }
@@ -2219,6 +2229,7 @@ function startGame(){
  const cfg=MODES[mode];
  score=0; lives=cfg.lives; timeLeft=cfg.time;
  scoreEl.textContent='0'; livesEl.textContent=lives; timeEl.textContent=timeLeft; modeLabel.textContent=cfg.name;
+ sfxInit(); SFX.click();
  overlay.classList.add('hidden');
  running=true; paused=false; pauseBtn.textContent='Pause';
  clearInterval(spawnTimer); clearInterval(gameTimer);
@@ -2230,6 +2241,7 @@ function endGame(resting=false){
  running=false; paused=false;
  clearInterval(spawnTimer); clearInterval(gameTimer);
  document.querySelectorAll('.target').forEach(n=>n.remove());
+ if(!resting) SFX.over();
  if(!resting){
    overlay.classList.remove('hidden');
    overlay.querySelector('h2').textContent='Score: '+score;
@@ -2277,6 +2289,7 @@ const MEMORY_FLIP_HTML = `<!DOCTYPE html>
     <span>Pairs: <strong id="pairs">0</strong>/<strong id="totalPairs">0</strong></span>
     <span>Mode: <strong id="modeLabel">Normal</strong></span>
     <div style="display:flex;gap:8px">
+      <button class="btn" id="soundBtn">🔊</button>
       <button class="btn" id="restartBtn">Restart</button>
     </div>
   </div>
@@ -2304,11 +2317,20 @@ const MEMORY_FLIP_HTML = `<!DOCTYPE html>
 </div></div>
 <script>
 document.getElementById('backBtn').onclick=()=>{try{window.close()}catch(e){}; setTimeout(()=>{if(!window.closed)history.back()},150)};
+
+// --- Sound ---
+let AC=null, sfxOn = localStorage.getItem('mf_sound') !== '0';
+function sfxInit(){ if(!AC){ try{ AC = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } if(AC && AC.state==='suspended') AC.resume(); }
+function beep(f,d=0.1,t='sine',v=0.18){ if(!sfxOn||!AC) return; const o=AC.createOscillator(), g=AC.createGain(); o.type=t; o.frequency.value=f; g.gain.value=v; g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime+d); o.connect(g).connect(AC.destination); o.start(); o.stop(AC.currentTime+d+0.02); }
+const SFX={flip(){beep(620,0.05,'sine',0.13)}, match(){beep(780,0.08,'square',0.16); setTimeout(()=>beep(1040,0.07,'sine',0.14),60)}, miss(){beep(260,0.12,'triangle',0.14)}, win(){beep(640,0.09,'triangle',0.2); setTimeout(()=>beep(960,0.1,'triangle',0.18),70); setTimeout(()=>beep(1280,0.12,'sine',0.16),140)}, click(){beep(600,0.05,'sine',0.13)}};
+function updateSoundBtn(){ document.getElementById('soundBtn').textContent = sfxOn ? '🔊' : '🔇'; }
+
 let mode='normal';
 const MODES={easy:{cols:4,rows:3,name:'Easy'}, normal:{cols:4,rows:4,name:'Normal'}, hard:{cols:6,rows:4,name:'Hard'}};
 const modeSelect=document.getElementById('modeSelect');
-modeSelect.addEventListener('click',e=>{const b=e.target.closest('.mode-btn'); if(!b) return; modeSelect.querySelectorAll('.mode-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); mode=b.dataset.mode;});
+modeSelect.addEventListener('click',e=>{const b=e.target.closest('.mode-btn'); if(!b) return; modeSelect.querySelectorAll('.mode-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); mode=b.dataset.mode; SFX.click();});
 const grid=document.getElementById('grid'), movesEl=document.getElementById('moves'), pairsEl=document.getElementById('pairs'), totalPairsEl=document.getElementById('totalPairs'), modeLabel=document.getElementById('modeLabel');
+const soundBtn=document.getElementById('soundBtn'); soundBtn.onclick=()=>{ sfxOn=!sfxOn; localStorage.setItem('mf_sound', sfxOn?'1':'0'); updateSoundBtn(); sfxInit(); SFX.click(); }; updateSoundBtn();
 const overlay=document.getElementById('overlay'), winOverlay=document.getElementById('winOverlay');
 const startBtn=document.getElementById('startBtn'), restartBtn=document.getElementById('restartBtn'), playAgainBtn=document.getElementById('playAgainBtn'), changeModeBtn=document.getElementById('changeModeBtn');
 let first=null, lock=false, moves=0, pairs=0, totalPairs=0, running=false;
@@ -2331,20 +2353,20 @@ function init(){
 }
 function flip(el){
  if(!running||lock||el.classList.contains('flipped')||el.classList.contains('matched')) return;
- el.classList.add('flipped'); el.textContent=el.dataset.v;
+ el.classList.add('flipped'); el.textContent=el.dataset.v; SFX.flip();
  if(!first){ first=el; return; }
  moves++; movesEl.textContent=moves;
  if(first.dataset.v===el.dataset.v){
-   first.classList.add('matched'); el.classList.add('matched'); first=null; pairs++; pairsEl.textContent=pairs;
-   if(pairs===totalPairs){ running=false; setTimeout(()=>{ document.getElementById('winText').textContent='Great!'; document.getElementById('winSub').textContent='Moves: '+moves; winOverlay.classList.remove('hidden'); },200); }
+   first.classList.add('matched'); el.classList.add('matched'); first=null; pairs++; pairsEl.textContent=pairs; SFX.match();
+   if(pairs===totalPairs){ running=false; SFX.win(); setTimeout(()=>{ document.getElementById('winText').textContent='Great!'; document.getElementById('winSub').textContent='Moves: '+moves; winOverlay.classList.remove('hidden'); },200); }
  } else {
-   lock=true; setTimeout(()=>{ first.classList.remove('flipped'); first.textContent='❓'; el.classList.remove('flipped'); el.textContent='❓'; first=null; lock=false; },650);
+   SFX.miss(); lock=true; setTimeout(()=>{ first.classList.remove('flipped'); first.textContent='❓'; el.classList.remove('flipped'); el.textContent='❓'; first=null; lock=false; },650);
  }
 }
-startBtn.onclick=()=>{ overlay.classList.add('hidden'); winOverlay.classList.add('hidden'); init(); };
+startBtn.onclick=()=>{ sfxInit(); SFX.click(); overlay.classList.add('hidden'); winOverlay.classList.add('hidden'); init(); };
 restartBtn.onclick=()=>{ running=false; grid.innerHTML=''; movesEl.textContent='0'; pairsEl.textContent='0'; winOverlay.classList.add('hidden'); overlay.classList.remove('hidden'); };
-playAgainBtn.onclick=()=>{ winOverlay.classList.add('hidden'); init(); };
-changeModeBtn.onclick=()=>{ winOverlay.classList.add('hidden'); overlay.classList.remove('hidden'); };
+playAgainBtn.onclick=()=>{ SFX.click(); winOverlay.classList.add('hidden'); init(); };
+changeModeBtn.onclick=()=>{ SFX.click(); winOverlay.classList.add('hidden'); overlay.classList.remove('hidden'); };
 <\/script></body></html>`;
 const BRAIN_TEST_HTML = `<!DOCTYPE html>
 <html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
@@ -2383,6 +2405,7 @@ const BRAIN_TEST_HTML = `<!DOCTYPE html>
     <span>Streak: <strong id="streak">0</strong></span>
     <span>Time: <strong id="time">0</strong>s</span>
     <div style="display:flex;gap:8px">
+      <button class="btn" id="soundBtn">🔊</button>
       <button class="btn" id="pauseBtn">Pause</button>
       <button class="btn" id="restartBtn">Restart</button>
     </div>
@@ -2410,9 +2433,17 @@ const BRAIN_TEST_HTML = `<!DOCTYPE html>
 </div></div>
 <script>
 document.getElementById('backBtn').onclick=()=>{try{window.close()}catch(e){}; setTimeout(()=>{if(!window.closed)history.back()},150)};
+
+// --- Sound ---
+let AC=null, sfxOn = localStorage.getItem('bt_sound') !== '0';
+function sfxInit(){ if(!AC){ try{ AC = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } if(AC && AC.state==='suspended') AC.resume(); }
+function beep(f,d=0.1,t='sine',v=0.18){ if(!sfxOn||!AC) return; const o=AC.createOscillator(), g=AC.createGain(); o.type=t; o.frequency.value=f; g.gain.value=v; g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime+d); o.connect(g).connect(AC.destination); o.start(); o.stop(AC.currentTime+d+0.02); }
+const SFX={ok(){beep(780,0.09,'sine',0.18); setTimeout(()=>beep(1040,0.09,'sine',0.16),70)}, bad(){beep(260,0.14,'triangle',0.14)}, click(){beep(620,0.05,'sine',0.13)}};
+function updateSoundBtn(){ document.getElementById('soundBtn').textContent = sfxOn ? '🔊' : '🔇'; }
+
 let mode='normal';
 const MODES={easy:{time:20,name:'Easy'},normal:{time:15,name:'Normal'},hard:{time:10,name:'Hard'}};
-document.getElementById('modeSelect').addEventListener('click',e=>{const b=e.target.closest('.mode-btn'); if(!b)return; document.querySelectorAll('.mode-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); mode=b.dataset.mode;});
+document.getElementById('modeSelect').addEventListener('click',e=>{const b=e.target.closest('.mode-btn'); if(!b)return; document.querySelectorAll('.mode-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); mode=b.dataset.mode; SFX.click();});
 const WORDS=[
 ['REACT','ফ্রন্টএন্ড লাইব্রেরি'],['NODE','ব্যাকএন্ড রানটাইম'],['PYTHON','সাপের নামে ভাষা'],['GITHUB','কোড হোস্টিং'],
 ['DHAKA','বাংলাদেশের রাজধানী'],['PUZZLE','ধাঁধা'],['BRAIN','মস্তিষ্ক'],['LOGIC','যুক্তি'],
@@ -2422,6 +2453,7 @@ const WORDS=[
 ['CODING','কোডিং'],['DESIGN','ডিজাইন'],['VECTOR','ভেক্টর'],['MATRIX','ম্যাট্রিক্স']
 ];
 const scoreEl=document.getElementById('score'), streakEl=document.getElementById('streak'), timeEl=document.getElementById('time');
+const soundBtn=document.getElementById('soundBtn'); soundBtn.onclick=()=>{ sfxOn=!sfxOn; localStorage.setItem('bt_sound', sfxOn?'1':'0'); updateSoundBtn(); sfxInit(); SFX.click(); }; updateSoundBtn();
 const scrambleEl=document.getElementById('scramble'), optionsEl=document.getElementById('options'), hintEl=document.getElementById('hint');
 const overlay=document.getElementById('overlay'), pauseOverlay=document.getElementById('pauseOverlay'), gameHud=document.getElementById('gameHud'), playArea=document.getElementById('playArea');
 let score=0, streak=0, timeLeft=0, timer=null, currentAnswer='', paused=false, running=false;
@@ -2444,6 +2476,7 @@ function nextQ(){
 function choose(btn, word){
   clearInterval(timer);
   const correct = word===currentAnswer;
+  if(correct) SFX.ok(); else SFX.bad();
   document.querySelectorAll('.opt').forEach(o=>{ o.disabled=true; if(o.textContent===currentAnswer) o.classList.add('correct'); else if(o===btn && !correct) o.classList.add('wrong'); });
   if(correct){ score+=10; streak++; } else { streak=0; }
   scoreEl.textContent=score; streakEl.textContent=streak;
@@ -2457,11 +2490,11 @@ function startGame(){
   nextQ();
 }
 function doRestart(){ clearInterval(timer); running=false; paused=false; gameHud.style.display='none'; playArea.style.display='none'; overlay.classList.remove('hidden'); pauseOverlay.classList.add('hidden'); }
-document.getElementById('startBtn').onclick=startGame;
+document.getElementById('startBtn').onclick=()=>{ sfxInit(); SFX.click(); startGame(); };
 document.getElementById('restartBtn').onclick=doRestart;
 document.getElementById('restartBtn2').onclick=()=>{ pauseOverlay.classList.add('hidden'); doRestart(); };
-document.getElementById('pauseBtn').onclick=()=>{ if(!running) return; paused=true; pauseOverlay.classList.remove('hidden'); };
-document.getElementById('resumeBtn').onclick=()=>{ paused=false; pauseOverlay.classList.add('hidden'); };
+document.getElementById('pauseBtn').onclick=()=>{ if(!running) return; SFX.click(); paused=true; pauseOverlay.classList.remove('hidden'); };
+document.getElementById('resumeBtn').onclick=()=>{ SFX.click(); paused=false; pauseOverlay.classList.add('hidden'); };
 <\/script></body></html>`;
 
 function openGame(html){ try{ const w=window.open('','_blank'); if(!w){ alert('Popup blocked! Browser এ popup allow করুন।'); return; } w.document.open(); w.document.write(html); w.document.close(); }catch(e){ try{ const blob=new Blob([html],{type:'text/html'}); const url=URL.createObjectURL(blob); const w2=window.open(url,'_blank'); if(!w2) alert('Popup blocked! Browser এ popup allow করুন।'); setTimeout(()=>URL.revokeObjectURL(url),60000); }catch(e2){ alert('Game open error: '+e.message); } } }
